@@ -93,7 +93,7 @@
 <!-- ===== setup ===== -->
 <section id="setup" class="screen active">
   <h1>指差し呼称 体感テスト</h1>
-  <p class="muted">画面に出た「色」と同じ色のボタンを押します。文字ではなく色です。表示は約1秒で消え、2秒以内に押さないと誤りになります。ボタンの並びは毎回変わります。</p>
+  <p class="muted">画面に色と文字が出ます。標準ルールでは文字を無視して「色」と同じボタンを押します。表示は約1秒で消え、2秒以内に押さないと誤りになります。ボタンの並びは毎回変わります。</p>
 
   <label class="field" for="name">名前（省略可）</label>
   <input type="text" id="name" placeholder="例：山田" autocomplete="off">
@@ -104,6 +104,12 @@
     <label><input type="radio" name="cond" value="call"> 声に出すだけ（色の名前を言ってから押す）</label>
     <label><input type="radio" name="cond" value="point"> 指を差すだけ（画面を指差してから押す）</label>
     <label><input type="radio" name="cond" value="both"> 指差し呼称（指差して、名前を言ってから押す）</label>
+  </div>
+
+  <label class="field">ルール</label>
+  <div class="radios" id="rules">
+    <label><input type="radio" name="rule" value="color" checked> 色を選ぶ（標準）：文字は無視して、表示の色と同じボタンを押す</label>
+    <label><input type="radio" name="rule" value="word"> 文字を選ぶ：色は無視して、文字が示す色のボタンを押す</label>
   </div>
 
   <label class="field" for="trials">回数</label>
@@ -161,7 +167,7 @@
   <h2>記録</h2>
   <div class="tablewrap">
   <table id="logTable">
-    <thead><tr><th>日時</th><th>名前</th><th>条件</th><th class="num">回数</th><th class="num">誤り</th><th class="num">誤り率</th><th class="num">反応</th></tr></thead>
+    <thead><tr><th>日時</th><th>名前</th><th>条件</th><th>ルール</th><th class="num">回数</th><th class="num">誤り</th><th class="num">誤り率</th><th class="num">反応</th></tr></thead>
     <tbody></tbody>
   </table>
   </div>
@@ -186,6 +192,7 @@
     { key: 'green',  name: '緑', cls: 'green',  text: '#fff' },
   ];
   const COND = { none: '何もしない', call: '声に出すだけ', point: '指を差すだけ', both: '指差し呼称' };
+  const RULE = { color: '色を選ぶ', word: '文字を選ぶ' };
   const REF  = { none: 2.38, call: 1.00, point: 0.75, both: 0.38 };
   const SHOW_MS = 1000, LIMIT_MS = 2000, MISMATCH_P = 0.35;
 
@@ -213,13 +220,15 @@
   function stamp(d) { return `${d.getFullYear()}/${pad2(d.getMonth()+1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
 
   // radio highlight
-  document.querySelectorAll('#conds label').forEach(l => {
-    l.addEventListener('click', () => {
-      document.querySelectorAll('#conds label').forEach(x => x.classList.remove('on'));
-      l.classList.add('on');
+  ['conds', 'rules'].forEach(id => {
+    document.querySelectorAll('#' + id + ' label').forEach(l => {
+      l.addEventListener('click', () => {
+        document.querySelectorAll('#' + id + ' label').forEach(x => x.classList.remove('on'));
+        l.classList.add('on');
+      });
     });
+    document.querySelector('#' + id + ' label').classList.add('on');
   });
-  document.querySelector('#conds label').classList.add('on');
 
   // ---- trial state ----
   let S = null;   // current session
@@ -230,8 +239,9 @@
   function start() {
     const cond = document.querySelector('input[name=cond]:checked').value;
     const n = parseInt($('trials').value, 10);
-    S = { name: $('name').value.trim(), cond, n, i: 0, trials: [], started: new Date() };
-    $('condLabel').textContent = COND[cond];
+    const rule = document.querySelector('input[name=rule]:checked').value;
+    S = { name: $('name').value.trim(), cond, rule, n, i: 0, trials: [], started: new Date() };
+    $('condLabel').textContent = COND[cond] + '　' + RULE[rule];
     show('trial');
     countdown(3);
   }
@@ -283,7 +293,7 @@
     t.answer = key || 'timeout';
     t.rt = key ? performance.now() - t.t0 : null;
     t.timeout = !key;
-    t.correct = key === t.target;
+    t.correct = key === (S.rule === 'word' ? t.word : t.target);
     S.current = null;
     document.querySelectorAll('.pad').forEach(p => p.disabled = true);
     const fb = $('feedback');
@@ -304,10 +314,10 @@
     const mmErr = errs.filter(t => t.mismatch && !t.timeout).length;
     const ok = S.trials.filter(t => t.correct);
     const rt = ok.length ? ok.reduce((a, t) => a + t.rt, 0) / ok.length : null;
-    const rec = { at: S.started.toISOString(), name: S.name, cond: S.cond, n: S.n, errors: errs.length, wrong, timeouts: to, mismatchErrors: mmErr, rt: rt == null ? null : Math.round(rt) };
+    const rec = { at: S.started.toISOString(), name: S.name, cond: S.cond, rule: S.rule, n: S.n, errors: errs.length, wrong, timeouts: to, mismatchErrors: mmErr, rt: rt == null ? null : Math.round(rt) };
     const list = load(); list.push(rec); save(list);
 
-    $('resultMeta').textContent = `${COND[S.cond]}　${S.n}回　${S.name || '名前なし'}`;
+    $('resultMeta').textContent = `${COND[S.cond]}　${RULE[S.rule]}　${S.n}回　${S.name || '名前なし'}`;
     $('rErrors').textContent = errs.length;
     $('rRate').textContent = pct(errs.length, S.n);
     $('rRt').textContent = ms(rt);
@@ -318,10 +328,14 @@
 
   // ---- summary ----
   function renderSummary() {
-    const list = load();
+    const list = load().map(r => ({ ...r, rule: r.rule || 'color' }));
     const sb = $('sumTable').querySelector('tbody'); sb.innerHTML = '';
-    ['none', 'call', 'point', 'both'].forEach(c => {
-      const rows = list.filter(r => r.cond === c);
+    ['color', 'word'].forEach(rule => {
+     const sub = list.filter(r => r.rule === rule);
+     if (rule === 'word' && !sub.length) return;
+     const h = document.createElement('tr'); h.innerHTML = `<td colspan="6" style="font-weight:600;padding-top:14px">${RULE[rule]}</td>`; sb.appendChild(h);
+     ['none', 'call', 'point', 'both'].forEach(c => {
+      const rows = sub.filter(r => r.cond === c);
       const n = rows.reduce((a, r) => a + r.n, 0);
       const e = rows.reduce((a, r) => a + r.errors, 0);
       const rts = rows.filter(r => r.rt != null);
@@ -329,17 +343,19 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${COND[c]}</td><td class="num">${rows.length}</td><td class="num">${n}</td><td class="num">${e}</td><td class="num">${pct(e, n)}</td><td class="num">${ms(rt)}</td>`;
       sb.appendChild(tr);
+     });
     });
+    const rh = document.createElement('tr'); rh.innerHTML = `<td colspan="6" style="font-weight:600;padding-top:14px">参考：鉄道総研（1994年）</td>`; sb.appendChild(rh);
     ['none', 'call', 'point', 'both'].forEach(c => {
       const tr = document.createElement('tr'); tr.className = 'ref';
-      tr.innerHTML = `<td>参考：鉄道総研 ${COND[c]}</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">${REF[c].toFixed(2)}%</td><td class="num">-</td>`;
+      tr.innerHTML = `<td>${COND[c]}</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">${REF[c].toFixed(2)}%</td><td class="num">-</td>`;
       sb.appendChild(tr);
     });
 
     const lb = $('logTable').querySelector('tbody'); lb.innerHTML = '';
     list.slice().reverse().forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${stamp(new Date(r.at))}</td><td>${esc(r.name) || '-'}</td><td>${COND[r.cond]}</td><td class="num">${r.n}</td><td class="num">${r.errors}</td><td class="num">${pct(r.errors, r.n)}</td><td class="num">${ms(r.rt)}</td>`;
+      tr.innerHTML = `<td>${stamp(new Date(r.at))}</td><td>${esc(r.name) || '-'}</td><td>${COND[r.cond]}</td><td>${RULE[r.rule]}</td><td class="num">${r.n}</td><td class="num">${r.errors}</td><td class="num">${pct(r.errors, r.n)}</td><td class="num">${ms(r.rt)}</td>`;
       lb.appendChild(tr);
     });
     $('emptyNote').textContent = list.length ? '' : 'まだ記録がありません。';
@@ -349,8 +365,8 @@
 
   function exportCsv() {
     const list = load();
-    const head = ['日時', '名前', '条件', '回数', '誤り', '押し間違い', '時間切れ', '不一致表示での押し間違い', '誤り率%', '平均反応ms'];
-    const rows = list.map(r => [stamp(new Date(r.at)), r.name, COND[r.cond], r.n, r.errors, r.wrong, r.timeouts, r.mismatchErrors, (100 * r.errors / r.n).toFixed(2), r.rt == null ? '' : r.rt]);
+    const head = ['日時', '名前', '条件', 'ルール', '回数', '誤り', '押し間違い', '時間切れ', '不一致表示での押し間違い', '誤り率%', '平均反応ms'];
+    const rows = list.map(r => [stamp(new Date(r.at)), r.name, COND[r.cond], RULE[r.rule || 'color'], r.n, r.errors, r.wrong, r.timeouts, r.mismatchErrors, (100 * r.errors / r.n).toFixed(2), r.rt == null ? '' : r.rt]);
     const csv = '\uFEFF' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
