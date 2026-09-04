@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>指差し呼称 体感テスト</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #d9d9d9;
+    --bg: #ffffff;
+    --panel: #f5f5f5;
+    --red: #d62828;
+    --blue: #1d4ed8;
+    --yellow: #f2c400;
+    --green: #2a9d3a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    font-size: 16px; line-height: 1.6; }
+  body { touch-action: manipulation; overscroll-behavior: none; }
+  main { max-width: 520px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 28px 0 8px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  label.field { display: block; margin: 14px 0 6px; font-size: 14px; }
+  input[type=text], select {
+    width: 100%; font: inherit; padding: 12px; border: 1px solid var(--line);
+    border-radius: 6px; background: #fff; color: var(--ink);
+  }
+  .radios { display: grid; gap: 8px; }
+  .radios label { display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+  .radios input { width: 20px; height: 20px; margin: 0; }
+  .radios label.on { border-color: var(--ink); background: var(--panel); }
+
+  button { font: inherit; cursor: pointer; }
+  .btn { width: 100%; padding: 16px; border-radius: 8px; border: 1px solid var(--ink);
+    background: var(--ink); color: #fff; font-size: 17px; font-weight: 600; margin-top: 20px; }
+  .btn.secondary { background: #fff; color: var(--ink); }
+  .btn:focus-visible, .pad:focus-visible { outline: 3px solid #5b9cff; outline-offset: 2px; }
+  .row { display: flex; gap: 10px; }
+  .row .btn { margin-top: 12px; }
+
+  /* trial */
+  .stage { margin-top: 12px; }
+  .counter { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+  .stimulus { height: 42vh; min-height: 220px; max-height: 340px; margin: 10px 0 14px;
+    border: 1px solid var(--line); border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; position: relative; overflow: hidden; background: var(--panel); }
+  .stimulus .box { width: 62%; height: 62%; border-radius: 12px; display: flex;
+    align-items: center; justify-content: center; }
+  .stimulus .word { font-size: 96px; font-weight: 700; line-height: 1; }
+  .stimulus .fix { font-size: 48px; color: var(--muted); }
+  .stimulus .count { font-size: 88px; font-weight: 700; color: var(--ink); }
+  .pads { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pad { height: 92px; border: none; border-radius: 10px; }
+  .pad[disabled] { opacity: .55; }
+  .pad.red { background: var(--red); }
+  .pad.blue { background: var(--blue); }
+  .pad.yellow { background: var(--yellow); }
+  .pad.green { background: var(--green); }
+  .feedback { height: 28px; margin-top: 10px; text-align: center; font-weight: 600; }
+  .feedback.ng { color: var(--red); }
+  .feedback.ok { color: var(--muted); }
+
+  /* results */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.ref td { color: var(--muted); }
+  .big { font-size: 40px; font-weight: 700; line-height: 1.1; }
+  .stat { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 8px 0 4px; }
+  .stat div { padding: 12px; background: var(--panel); border-radius: 8px; }
+  .stat small { display: block; color: var(--muted); font-size: 13px; }
+  .note { border-left: 3px solid var(--line); padding: 4px 12px; color: var(--muted); font-size: 14px; }
+  .tablewrap { overflow-x: auto; }
+  @media (prefers-reduced-motion: no-preference) {
+    .pad:active { transform: scale(.97); }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ===== setup ===== -->
+<section id="setup" class="screen active">
+  <h1>指差し呼称 体感テスト</h1>
+  <p class="muted">画面に出た「色」と同じ色のボタンを押します。文字ではなく色です。表示は約1秒で消え、2秒以内に押さないと誤りになります。ボタンの並びは毎回変わります。</p>
+
+  <label class="field" for="name">名前（省略可）</label>
+  <input type="text" id="name" placeholder="例：山田" autocomplete="off">
+
+  <label class="field">条件</label>
+  <div class="radios" id="conds">
+    <label><input type="radio" name="cond" value="none" checked> 何もしない</label>
+    <label><input type="radio" name="cond" value="call"> 声に出すだけ（色の名前を言ってから押す）</label>
+    <label><input type="radio" name="cond" value="point"> 指を差すだけ（画面を指差してから押す）</label>
+    <label><input type="radio" name="cond" value="both"> 指差し呼称（指差して、名前を言ってから押す）</label>
+  </div>
+
+  <label class="field" for="trials">回数</label>
+  <select id="trials">
+    <option value="30">30回（約2分）</option>
+    <option value="50" selected>50回（約3分）</option>
+    <option value="100">100回（約6分）</option>
+  </select>
+
+  <button class="btn" id="startBtn">開始する</button>
+  <button class="btn secondary" id="toResults">これまでの結果を見る</button>
+
+  <h2>やり方</h2>
+  <p class="muted">条件は自己申告です。アプリは指差しも声も検知しません。選んだ条件のとおりに、毎回必ず実行してください。指差しは画面の色を指で差す。呼称は「赤」「青」「黄」「緑」と声に出す。押すのはその後です。</p>
+</section>
+
+<!-- ===== trial ===== -->
+<section id="trial" class="screen">
+  <div class="stage">
+    <div class="counter"><span id="condLabel"></span><span id="progress"></span></div>
+    <div class="stimulus" id="stimulus"><span class="fix">＋</span></div>
+    <div class="pads" id="pads"></div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+  <button class="btn secondary" id="abortBtn">中止する</button>
+</section>
+
+<!-- ===== single result ===== -->
+<section id="result" class="screen">
+  <h1>結果</h1>
+  <p class="muted" id="resultMeta"></p>
+  <div class="stat">
+    <div><small>誤り</small><span class="big" id="rErrors"></span></div>
+    <div><small>誤り率</small><span class="big" id="rRate"></span></div>
+    <div><small>平均反応</small><span class="big" id="rRt"></span></div>
+  </div>
+  <p class="muted" id="rBreak"></p>
+  <div class="row">
+    <button class="btn" id="againBtn">別の条件でやる</button>
+    <button class="btn secondary" id="toResults2">全体の結果</button>
+  </div>
+</section>
+
+<!-- ===== summary ===== -->
+<section id="summary" class="screen">
+  <h1>全体の結果</h1>
+  <p class="muted">条件ごとの合計です。参考に鉄道総研（1994年）の実験値を並べています。実験は条件も規模も違うので、数字の直接比較はしないでください。</p>
+  <div class="tablewrap">
+  <table id="sumTable">
+    <thead><tr><th>条件</th><th class="num">人数</th><th class="num">回数</th><th class="num">誤り</th><th class="num">誤り率</th><th class="num">反応</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+
+  <h2>記録</h2>
+  <div class="tablewrap">
+  <table id="logTable">
+    <thead><tr><th>日時</th><th>名前</th><th>条件</th><th class="num">回数</th><th class="num">誤り</th><th class="num">誤り率</th><th class="num">反応</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+  <p class="muted" id="emptyNote"></p>
+
+  <div class="row">
+    <button class="btn" id="backBtn">戻る</button>
+    <button class="btn secondary" id="csvBtn">CSVを書き出す</button>
+  </div>
+  <button class="btn secondary" id="clearBtn">記録を全て消す</button>
+  <p class="note" style="margin-top:20px">記録はこの端末のブラウザ内に保存されます。別の端末とは共有されません。</p>
+</section>
+
+</main>
+
+<script>
+(function () {
+  const COLORS = [
+    { key: 'red',    name: '赤', cls: 'red',    text: '#fff' },
+    { key: 'blue',   name: '青', cls: 'blue',   text: '#fff' },
+    { key: 'yellow', name: '黄', cls: 'yellow', text: '#1a1a1a' },
+    { key: 'green',  name: '緑', cls: 'green',  text: '#fff' },
+  ];
+  const COND = { none: '何もしない', call: '声に出すだけ', point: '指を差すだけ', both: '指差し呼称' };
+  const REF  = { none: 2.38, call: 1.00, point: 0.75, both: 0.38 };
+  const SHOW_MS = 1000, LIMIT_MS = 2000, MISMATCH_P = 0.35;
+
+  // ---- storage (localStorage, in-memory fallback) ----
+  const KEY = 'shisakosho.sessions.v1';
+  let memory = [];
+  function load() {
+    try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : []; }
+    catch (e) { return memory; }
+  }
+  function save(list) {
+    memory = list;
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* keep in memory */ }
+  }
+
+  // ---- helpers ----
+  const $ = (id) => document.getElementById(id);
+  const screens = ['setup', 'trial', 'result', 'summary'];
+  function show(id) { screens.forEach(s => $(s).classList.toggle('active', s === id)); window.scrollTo(0, 0); }
+  const rand = (n) => Math.floor(Math.random() * n);
+  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  const pct = (e, n) => n ? (100 * e / n).toFixed(1) + '%' : '-';
+  const ms  = (v) => v == null ? '-' : Math.round(v) + 'ms';
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function stamp(d) { return `${d.getFullYear()}/${pad2(d.getMonth()+1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+
+  // radio highlight
+  document.querySelectorAll('#conds label').forEach(l => {
+    l.addEventListener('click', () => {
+      document.querySelectorAll('#conds label').forEach(x => x.classList.remove('on'));
+      l.classList.add('on');
+    });
+  });
+  document.querySelector('#conds label').classList.add('on');
+
+  // ---- trial state ----
+  let S = null;   // current session
+  let timers = [];
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function later(fn, t) { timers.push(setTimeout(fn, t)); }
+
+  function start() {
+    const cond = document.querySelector('input[name=cond]:checked').value;
+    const n = parseInt($('trials').value, 10);
+    S = { name: $('name').value.trim(), cond, n, i: 0, trials: [], started: new Date() };
+    $('condLabel').textContent = COND[cond];
+    show('trial');
+    countdown(3);
+  }
+
+  function countdown(k) {
+    const st = $('stimulus');
+    if (k === 0) { st.innerHTML = '<span class="fix">＋</span>'; later(nextTrial, 600); return; }
+    st.innerHTML = `<span class="count">${k}</span>`;
+    later(() => countdown(k - 1), 800);
+  }
+
+  function nextTrial() {
+    if (S.i >= S.n) { finish(); return; }
+    $('progress').textContent = `${S.i + 1} / ${S.n}`;
+    $('feedback').textContent = ''; $('feedback').className = 'feedback';
+    $('stimulus').innerHTML = '<span class="fix">＋</span>';
+    renderPads(true);
+    later(showStimulus, 600 + rand(600));
+  }
+
+  function showStimulus() {
+    const target = COLORS[rand(4)];
+    let word = target;
+    if (Math.random() < MISMATCH_P) { const others = COLORS.filter(c => c.key !== target.key); word = others[rand(3)]; }
+    const t = { target: target.key, word: word.key, mismatch: word.key !== target.key, rt: null, answer: null, correct: false, timeout: false };
+    S.current = t;
+    const st = $('stimulus');
+    st.innerHTML = `<div class="box" style="background:var(--${target.cls});color:${target.text}"><span class="word">${word.name}</span></div>`;
+    t.t0 = performance.now();
+    renderPads(false);
+    later(() => { if (S.current === t && t.answer == null) st.innerHTML = '<span class="fix">&nbsp;</span>'; }, SHOW_MS);
+    later(() => { if (S.current === t && t.answer == null) answer(null); }, LIMIT_MS);
+  }
+
+  function renderPads(disabled) {
+    const order = shuffle(COLORS);
+    const el = $('pads'); el.innerHTML = '';
+    order.forEach(c => {
+      const b = document.createElement('button');
+      b.className = 'pad ' + c.cls; b.setAttribute('aria-label', c.name);
+      b.disabled = disabled;
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); answer(c.key); });
+      el.appendChild(b);
+    });
+  }
+
+  function answer(key) {
+    const t = S.current; if (!t || t.answer != null) return;
+    t.answer = key || 'timeout';
+    t.rt = key ? performance.now() - t.t0 : null;
+    t.timeout = !key;
+    t.correct = key === t.target;
+    S.current = null;
+    document.querySelectorAll('.pad').forEach(p => p.disabled = true);
+    const fb = $('feedback');
+    if (t.timeout)      { fb.textContent = '時間切れ'; fb.className = 'feedback ng'; }
+    else if (!t.correct){ fb.textContent = '誤り';     fb.className = 'feedback ng'; }
+    else                { fb.textContent = '';         fb.className = 'feedback ok'; }
+    S.trials.push(t); S.i++;
+    later(nextTrial, t.correct ? 350 : 800);
+  }
+
+  function abort() { clearTimers(); S = null; show('setup'); }
+
+  function finish() {
+    clearTimers();
+    const errs = S.trials.filter(t => !t.correct);
+    const to   = errs.filter(t => t.timeout).length;
+    const wrong = errs.length - to;
+    const mmErr = errs.filter(t => t.mismatch && !t.timeout).length;
+    const ok = S.trials.filter(t => t.correct);
+    const rt = ok.length ? ok.reduce((a, t) => a + t.rt, 0) / ok.length : null;
+    const rec = { at: S.started.toISOString(), name: S.name, cond: S.cond, n: S.n, errors: errs.length, wrong, timeouts: to, mismatchErrors: mmErr, rt: rt == null ? null : Math.round(rt) };
+    const list = load(); list.push(rec); save(list);
+
+    $('resultMeta').textContent = `${COND[S.cond]}　${S.n}回　${S.name || '名前なし'}`;
+    $('rErrors').textContent = errs.length;
+    $('rRate').textContent = pct(errs.length, S.n);
+    $('rRt').textContent = ms(rt);
+    $('rBreak').textContent = `内訳：押し間違い ${wrong}（うち文字と色が違う表示で ${mmErr}）、時間切れ ${to}`;
+    S = null;
+    show('result');
+  }
+
+  // ---- summary ----
+  function renderSummary() {
+    const list = load();
+    const sb = $('sumTable').querySelector('tbody'); sb.innerHTML = '';
+    ['none', 'call', 'point', 'both'].forEach(c => {
+      const rows = list.filter(r => r.cond === c);
+      const n = rows.reduce((a, r) => a + r.n, 0);
+      const e = rows.reduce((a, r) => a + r.errors, 0);
+      const rts = rows.filter(r => r.rt != null);
+      const rt = rts.length ? rts.reduce((a, r) => a + r.rt * r.n, 0) / rts.reduce((a, r) => a + r.n, 0) : null;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${COND[c]}</td><td class="num">${rows.length}</td><td class="num">${n}</td><td class="num">${e}</td><td class="num">${pct(e, n)}</td><td class="num">${ms(rt)}</td>`;
+      sb.appendChild(tr);
+    });
+    ['none', 'call', 'point', 'both'].forEach(c => {
+      const tr = document.createElement('tr'); tr.className = 'ref';
+      tr.innerHTML = `<td>参考：鉄道総研 ${COND[c]}</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">${REF[c].toFixed(2)}%</td><td class="num">-</td>`;
+      sb.appendChild(tr);
+    });
+
+    const lb = $('logTable').querySelector('tbody'); lb.innerHTML = '';
+    list.slice().reverse().forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${stamp(new Date(r.at))}</td><td>${esc(r.name) || '-'}</td><td>${COND[r.cond]}</td><td class="num">${r.n}</td><td class="num">${r.errors}</td><td class="num">${pct(r.errors, r.n)}</td><td class="num">${ms(r.rt)}</td>`;
+      lb.appendChild(tr);
+    });
+    $('emptyNote').textContent = list.length ? '' : 'まだ記録がありません。';
+    show('summary');
+  }
+  function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  function exportCsv() {
+    const list = load();
+    const head = ['日時', '名前', '条件', '回数', '誤り', '押し間違い', '時間切れ', '不一致表示での押し間違い', '誤り率%', '平均反応ms'];
+    const rows = list.map(r => [stamp(new Date(r.at)), r.name, COND[r.cond], r.n, r.errors, r.wrong, r.timeouts, r.mismatchErrors, (100 * r.errors / r.n).toFixed(2), r.rt == null ? '' : r.rt]);
+    const csv = '\uFEFF' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'shisakosho_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+  }
+
+  function clearAll() {
+    if (!confirm('この端末の記録を全て消します。よろしいですか。')) return;
+    save([]); renderSummary();
+  }
+
+  // ---- wire ----
+  $('startBtn').addEventListener('click', start);
+  $('abortBtn').addEventListener('click', abort);
+  $('againBtn').addEventListener('click', () => show('setup'));
+  $('toResults').addEventListener('click', renderSummary);
+  $('toResults2').addEventListener('click', renderSummary);
+  $('backBtn').addEventListener('click', () => show('setup'));
+  $('csvBtn').addEventListener('click', exportCsv);
+  $('clearBtn').addEventListener('click', clearAll);
+})();
+</script>
+</body>
+</html>
