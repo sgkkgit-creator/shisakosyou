@@ -93,7 +93,7 @@
 <!-- ===== setup ===== -->
 <section id="setup" class="screen active">
   <h1>指差し呼称 体感テスト</h1>
-  <p class="muted">画面に色と文字が出ます。標準ルールでは文字を無視して「色」と同じボタンを押します。表示は約1秒で消え、2秒以内に押さないと誤りになります。ボタンの並びは毎回変わります。</p>
+  <p class="muted">画面に色と文字が出ます。標準ルールでは文字を無視して「色」と同じボタンを押します。表示は約1秒で消えます。消えた後でも押せますが、反応時間は記録されます。ボタンの並びは毎回変わります。</p>
 
   <label class="field" for="name">名前（省略可）</label>
   <input type="text" id="name" placeholder="例：山田" autocomplete="off">
@@ -194,7 +194,7 @@
   const COND = { none: '何もしない', call: '声に出すだけ', point: '指を差すだけ', both: '指差し呼称' };
   const RULE = { color: '色を選ぶ', word: '文字を選ぶ' };
   const REF  = { none: 2.38, call: 1.00, point: 0.75, both: 0.38 };
-  const SHOW_MS = 1000, LIMIT_MS = 2000, MISMATCH_P = 0.35;
+  const SHOW_MS = 1000, MISMATCH_P = 0.35;
 
   // ---- storage (localStorage, in-memory fallback) ----
   const KEY = 'shisakosho.sessions.v1';
@@ -266,14 +266,13 @@
     const target = COLORS[rand(4)];
     let word = target;
     if (Math.random() < MISMATCH_P) { const others = COLORS.filter(c => c.key !== target.key); word = others[rand(3)]; }
-    const t = { target: target.key, word: word.key, mismatch: word.key !== target.key, rt: null, answer: null, correct: false, timeout: false };
+    const t = { target: target.key, word: word.key, mismatch: word.key !== target.key, rt: null, answer: null, correct: false };
     S.current = t;
     const st = $('stimulus');
     st.innerHTML = `<div class="box" style="background:var(--${target.cls});color:${target.text}"><span class="word">${word.name}</span></div>`;
     t.t0 = performance.now();
     renderPads(false);
     later(() => { if (S.current === t && t.answer == null) st.innerHTML = '<span class="fix">&nbsp;</span>'; }, SHOW_MS);
-    later(() => { if (S.current === t && t.answer == null) answer(null); }, LIMIT_MS);
   }
 
   function renderPads(disabled) {
@@ -290,15 +289,13 @@
 
   function answer(key) {
     const t = S.current; if (!t || t.answer != null) return;
-    t.answer = key || 'timeout';
-    t.rt = key ? performance.now() - t.t0 : null;
-    t.timeout = !key;
+    t.answer = key;
+    t.rt = performance.now() - t.t0;
     t.correct = key === (S.rule === 'word' ? t.word : t.target);
     S.current = null;
     document.querySelectorAll('.pad').forEach(p => p.disabled = true);
     const fb = $('feedback');
-    if (t.timeout)      { fb.textContent = '時間切れ'; fb.className = 'feedback ng'; }
-    else if (!t.correct){ fb.textContent = '誤り';     fb.className = 'feedback ng'; }
+    if (!t.correct)     { fb.textContent = '誤り';     fb.className = 'feedback ng'; }
     else                { fb.textContent = '';         fb.className = 'feedback ok'; }
     S.trials.push(t); S.i++;
     later(nextTrial, t.correct ? 350 : 800);
@@ -309,19 +306,17 @@
   function finish() {
     clearTimers();
     const errs = S.trials.filter(t => !t.correct);
-    const to   = errs.filter(t => t.timeout).length;
-    const wrong = errs.length - to;
-    const mmErr = errs.filter(t => t.mismatch && !t.timeout).length;
+    const mmErr = errs.filter(t => t.mismatch).length;
     const ok = S.trials.filter(t => t.correct);
     const rt = ok.length ? ok.reduce((a, t) => a + t.rt, 0) / ok.length : null;
-    const rec = { at: S.started.toISOString(), name: S.name, cond: S.cond, rule: S.rule, n: S.n, errors: errs.length, wrong, timeouts: to, mismatchErrors: mmErr, rt: rt == null ? null : Math.round(rt) };
+    const rec = { at: S.started.toISOString(), name: S.name, cond: S.cond, rule: S.rule, n: S.n, errors: errs.length, mismatchErrors: mmErr, rt: rt == null ? null : Math.round(rt) };
     const list = load(); list.push(rec); save(list);
 
     $('resultMeta').textContent = `${COND[S.cond]}　${RULE[S.rule]}　${S.n}回　${S.name || '名前なし'}`;
     $('rErrors').textContent = errs.length;
     $('rRate').textContent = pct(errs.length, S.n);
     $('rRt').textContent = ms(rt);
-    $('rBreak').textContent = `内訳：押し間違い ${wrong}（うち文字と色が違う表示で ${mmErr}）、時間切れ ${to}`;
+    $('rBreak').textContent = `内訳：文字と色が違う表示での誤り ${mmErr}、同じ表示での誤り ${errs.length - mmErr}`;
     S = null;
     show('result');
   }
@@ -365,8 +360,8 @@
 
   function exportCsv() {
     const list = load();
-    const head = ['日時', '名前', '条件', 'ルール', '回数', '誤り', '押し間違い', '時間切れ', '不一致表示での押し間違い', '誤り率%', '平均反応ms'];
-    const rows = list.map(r => [stamp(new Date(r.at)), r.name, COND[r.cond], RULE[r.rule || 'color'], r.n, r.errors, r.wrong, r.timeouts, r.mismatchErrors, (100 * r.errors / r.n).toFixed(2), r.rt == null ? '' : r.rt]);
+    const head = ['日時', '名前', '条件', 'ルール', '回数', '誤り', 'うち不一致表示での誤り', '誤り率%', '平均反応ms'];
+    const rows = list.map(r => [stamp(new Date(r.at)), r.name, COND[r.cond], RULE[r.rule || 'color'], r.n, r.errors, r.mismatchErrors == null ? '' : r.mismatchErrors, (100 * r.errors / r.n).toFixed(2), r.rt == null ? '' : r.rt]);
     const csv = '\uFEFF' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
